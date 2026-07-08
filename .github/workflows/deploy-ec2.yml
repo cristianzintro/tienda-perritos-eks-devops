@@ -1,0 +1,105 @@
+﻿name: CI/CD - Tienda Perritos EC2
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+env:
+  AWS_REGION: us-east-1
+  EC2_INSTANCE_ID: i-077da0a4e945ff17b
+  FRONTEND_REPO: tienda-frontend
+  BACKEND_REPO: tienda-backend
+  DB_REPO: tienda-db
+  APP_PATH: /home/ssm-user/tienda-perritos-EKS
+
+jobs:
+  deploy-ec2:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v5
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Test backend
+        run: |
+          cd backend
+          npm install
+          npm test
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Definir tag de imagen
+        run: echo "TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+      - name: Build y push Frontend
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:$TAG ./frontend
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:$TAG ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:$TAG
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.FRONTEND_REPO }}:latest
+
+      - name: Build y push Backend
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:$TAG ./backend
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:$TAG ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:$TAG
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.BACKEND_REPO }}:latest
+
+      - name: Build y push Base de datos
+        run: |
+          docker build -t ${{ steps.login-ecr.outputs.registry }}/${{ env.DB_REPO }}:$TAG ./db
+          docker tag ${{ steps.login-ecr.outputs.registry }}/${{ env.DB_REPO }}:$TAG ${{ steps.login-ecr.outputs.registry }}/${{ env.DB_REPO }}:latest
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.DB_REPO }}:$TAG
+          docker push ${{ steps.login-ecr.outputs.registry }}/${{ env.DB_REPO }}:latest
+
+      - name: Deploy en EC2 usando SSM
+        id: deploy
+        run: |
+          COMMAND_ID=$(aws ssm send-command \
+            --instance-ids "${{ env.EC2_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy Tienda Perritos desde GitHub Actions" \
+            --parameters commands="[
+              \"git config --global --add safe.directory ${{ env.APP_PATH }}\",
+              \"cd ${{ env.APP_PATH }}\",
+              \"git pull origin main\",
+              \"sudo docker compose down\",
+              \"sudo docker compose up -d --build\",
+              \"sudo docker compose ps\",
+              \"curl -f http://localhost:8080/api/productos\"
+            ]" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "COMMAND_ID=$COMMAND_ID" >> $GITHUB_ENV
+          echo "Command ID: $COMMAND_ID"
+
+      - name: Esperar resultado deploy EC2
+        run: |
+          aws ssm wait command-executed \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}"
+
+      - name: Mostrar salida del deploy
+        run: |
+          aws ssm get-command-invocation \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ env.EC2_INSTANCE_ID }}" \
+            --query "{Status:Status,Output:StandardOutputContent,Error:StandardErrorContent}" \
+            --output json

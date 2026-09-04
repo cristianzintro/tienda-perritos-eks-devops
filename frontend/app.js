@@ -16,6 +16,7 @@ const tbody = document.getElementById("tbodyProductos");
 const btnCargar = document.getElementById("btnCargar");
 const btnGuardar = document.getElementById("btnGuardar");
 const btnCancelar = document.getElementById("btnCancelar");
+const btnTema = document.getElementById("btnTema");
 const formTitle = document.getElementById("formTitle");
 const statusDiv = document.getElementById("status");
 
@@ -27,6 +28,18 @@ const inputStock = document.getElementById("stock");
 function setStatus(mensaje, tipo = "ok") {
   statusDiv.textContent = mensaje;
   statusDiv.className = "status " + tipo;
+}
+
+// Modo oscuro con persistencia en localStorage
+function aplicarTema(oscuro) {
+  document.body.classList.toggle("dark", oscuro);
+  btnTema.textContent = oscuro ? "Modo claro" : "Modo oscuro";
+  localStorage.setItem("tienda-perritos-tema", oscuro ? "dark" : "light");
+}
+
+function inicializarTema() {
+  const guardado = localStorage.getItem("tienda-perritos-tema");
+  aplicarTema(guardado === "dark");
 }
 
 async function cargarProductos() {
@@ -182,6 +195,10 @@ btnCancelar.addEventListener("click", () => {
   limpiarFormulario();
   setStatus("Edición cancelada.", "ok");
 });
+btnTema.addEventListener("click", () => {
+  aplicarTema(!document.body.classList.contains("dark"));
+});
 
-// Cargar productos al iniciar
+// Cargar productos y tema al iniciar
+inicializarTema();
 cargarProductos();

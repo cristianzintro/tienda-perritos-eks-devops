@@ -16,8 +16,12 @@ const tbody = document.getElementById("tbodyProductos");
 const btnCargar = document.getElementById("btnCargar");
 const btnGuardar = document.getElementById("btnGuardar");
 const btnCancelar = document.getElementById("btnCancelar");
+const btnTema = document.getElementById("btnTema");
+const inputBuscar = document.getElementById("buscar");
 const formTitle = document.getElementById("formTitle");
 const statusDiv = document.getElementById("status");
+
+let productos = [];
 
 const inputNombre = document.getElementById("nombre");
 const inputDescripcion = document.getElementById("descripcion");
@@ -34,7 +38,8 @@ async function cargarProductos() {
     const res = await fetch(API_BASE);
     if (!res.ok) throw new Error("Error al cargar productos");
     const data = await res.json();
-    renderProductos(data);
+    productos = data;
+    renderProductos();
     setStatus("Productos cargados correctamente.", "ok");
   } catch (err) {
     console.error(err);
@@ -42,9 +47,18 @@ async function cargarProductos() {
   }
 }
 
-function renderProductos(productos) {
+// Filtro en tiempo real por nombre o descripción
+function filtrarProductos(filtro) {
+  const termino = filtro.toLowerCase();
+  return productos.filter(
+    (p) => p.nombre.toLowerCase().includes(termino) || (p.descripcion || "").toLowerCase().includes(termino)
+  );
+}
+
+function renderProductos(filtro) {
+  const visibles = filtro ? filtrarProductos(filtro) : productos;
   tbody.innerHTML = "";
-  productos.forEach((p) => {
+  visibles.forEach((p) => {
     const tr = document.createElement("tr");
 
     tr.innerHTML = `
@@ -182,6 +196,7 @@ btnCancelar.addEventListener("click", () => {
   limpiarFormulario();
   setStatus("Edición cancelada.", "ok");
 });
+inputBuscar.addEventListener("input", (e) => renderProductos(e.target.value));
 
 // Cargar productos al iniciar
 cargarProductos();

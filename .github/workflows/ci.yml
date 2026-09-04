@@ -1,0 +1,35 @@
+name: CI - Validacion basicas
+
+on:
+  push:
+    branches: [ develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout codigo
+        uses: actions/checkout@v5
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Validar sintaxis backend
+        run: |
+          cd backend
+          npm install
+          npm test
+
+      - name: Validar sintaxis frontend
+        run: node --check frontend/app.js
+
+      - name: Verificar estructura de carpetas
+        run: |
+          test -f docker-compose.yml && echo "docker-compose.yml OK"
+          test -d backend && echo "backend OK"
+          test -d frontend && echo "frontend OK"

@@ -146,3 +146,77 @@ kubectl rollout status deployment tienda-frontend -n tienda
 1. **Pipeline falló por falta de AWS Secrets** — Solución: configurar `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` y `AWS_SESSION_TOKEN` en GitHub Secrets.
 2. **Pod no actualizaba imagen `:latest` tras pipeline** — Solución: ejecutar `kubectl rollout restart` para forzar el uso de la nueva imagen.
 3. **Workflow mostraba commits de repositorio original** — Solución: crear rama orphan con historial limpio y forzar push.
+
+---
+
+## Trabajo colaborativo y GitFlow
+
+### Estrategia de ramificación
+
+Usamos **GitFlow** para separar el desarrollo de features de la versión estable.
+
+```
+main      ●────────────────────────────────●──── (estable, solo releases)
+           \                              /
+develop    ●────────────────●────●───────●────── (integración)
+            \              /      \     /
+             feature/modo-oscuro    feature/busqueda-productos
+                                    
+hotfix/validacion-stock-precio → main y develop (corrección urgente)
+```
+
+### Ramas del proyecto
+
+| Rama | Nace desde | Se fusiona hacia | Propósito |
+|---|---|---|---|
+| `main` | — | — | Versión estable y desplegable |
+| `develop` | `main` | `main` (release) | Integración de features |
+| `feature/<nombre>` | `develop` | `develop` | Nueva funcionalidad |
+| `hotfix/<nombre>` | `main` | `main` y `develop` | Corrección urgente en producción |
+
+### Naming de ramas
+
+- Features: `feature/<nombre-corto-del-cambio>` (ej: `feature/modo-oscuro`).
+- Hotfixes: `hotfix/<falla-a-corregir>` (ej: `hotfix/validacion-stock-precio`).
+- Sin espacios, en minúsculas, usando guiones.
+
+### Convenciones de commits
+
+Formato: `<prefijo>: <descripción en español, imperativo>`
+
+| Prefijo | Uso | Ejemplo |
+|---|---|---|
+| `feat` | Nueva funcionalidad | `feat: agregar modo oscuro` |
+| `fix` | Corrección de bug | `fix: rechazar precio negativo` |
+| `ci` | Cambios en CI/CD | `ci: agregar workflow en develop` |
+| `docs` | Documentación | `docs: agregar convenciones del equipo` |
+| `test` | Pruebas | `test: agregar validación básica` |
+| `merge` | Fusión de ramas | `merge: resolver conflicto entre features` |
+
+### Flujo de merge mediante pull requests
+
+1. Crear la rama desde `develop`: `git switch develop` → `git switch -c feature/<nombre>`.
+2. Desarrollar y commitear con la convención descrita.
+3. Abrir un **PR hacia `develop`** describiendo el cambio.
+4. Esperar que el **CI quede en verde** (corre en cada push a `develop` y en cada PR hacia `main`).
+5. La pareja revisa el PR, hace comentarios si es necesario y aprueba.
+6. Fusionar con **merge commit** (`--no-ff`) y eliminar la rama de feature.
+7. Releases: PR de `develop` → `main`. Urgencias: `hotfix` desde `main` hacia `main` y `develop`.
+
+### Estrategia de revisión
+
+- Todo cambio entra por **pull request**; nunca se hace push directo a `main` ni a `develop`.
+- Mínimo **un revisor** (la pareja) antes de aprobar.
+- El CI debe estar **verde** antes del merge.
+- Lista de chequeo del revisor: la funcionalidad se probó, no rompe lo existente, el mensaje de commit sigue la convención y no hay secretos ni credenciales en el código.
+
+### Justificación de la estrategia (redacción del equipo)
+
+<!-- IMPORTANTE: Esta sección debe ser redactada por el equipo, sin usar IA. -->
+Guía para redactarla (3 a 5 párrafos):
+1. ¿Por qué GitFlow y no trunk-based para este proyecto? Consideren: equipo de 2 personas, necesidad de ramas paralelas, urgencias sobre una versión estable, experiencia previa.
+2. ¿Qué problemas resuelve tener `main` siempre estable y `develop` como integración?
+3. ¿Cuándo usarían una feature y cuándo un hotfix?
+4. ¿Qué convención de commits les pareció más útil y por qué?
+
+Reflexión personal de cada integrante (obligatoria, sin IA): qué aprendieron y cuál fue su aporte en este encargo.

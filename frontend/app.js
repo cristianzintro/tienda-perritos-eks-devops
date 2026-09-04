@@ -33,6 +33,18 @@ function setStatus(mensaje, tipo = "ok") {
   statusDiv.className = "status " + tipo;
 }
 
+// Modo oscuro con persistencia en localStorage
+function aplicarTema(oscuro) {
+  document.body.classList.toggle("dark", oscuro);
+  btnTema.textContent = oscuro ? "Modo claro" : "Modo oscuro";
+  localStorage.setItem("tienda-perritos-tema", oscuro ? "dark" : "light");
+}
+
+function inicializarTema() {
+  const guardado = localStorage.getItem("tienda-perritos-tema");
+  aplicarTema(guardado === "dark");
+}
+
 async function cargarProductos() {
   try {
     const res = await fetch(API_BASE);
@@ -197,6 +209,10 @@ btnCancelar.addEventListener("click", () => {
   setStatus("Edición cancelada.", "ok");
 });
 inputBuscar.addEventListener("input", (e) => renderProductos(e.target.value));
+btnTema.addEventListener("click", () => {
+  aplicarTema(!document.body.classList.contains("dark"));
+});
 
-// Cargar productos al iniciar
+// Cargar productos y tema al iniciar
+inicializarTema();
 cargarProductos();

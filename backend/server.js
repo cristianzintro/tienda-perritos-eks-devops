@@ -71,8 +71,8 @@ app.get("/api/productos/:id", async (req, res) => {
 app.post("/api/productos", async (req, res) => {
   const { nombre, descripcion, precio, stock } = req.body;
 
-  if (!nombre || precio == null || stock == null) {
-    return res.status(400).json({ message: "Nombre, precio y stock son obligatorios." });
+  if (!nombre || precio == null || stock == null || isNaN(precio) || isNaN(stock) || Number(precio) < 0 || Number(stock) < 0) {
+    return res.status(400).json({ message: "Nombre, precio y stock son obligatorios y no pueden ser negativos." });
   }
 
   try {
@@ -93,8 +93,8 @@ app.put("/api/productos/:id", async (req, res) => {
   const { id } = req.params;
   const { nombre, descripcion, precio, stock } = req.body;
 
-  if (!nombre || precio == null || stock == null) {
-    return res.status(400).json({ message: "Nombre, Precio y Stock son obligatorios." });
+  if (!nombre || precio == null || stock == null || isNaN(precio) || isNaN(stock) || Number(precio) < 0 || Number(stock) < 0) {
+    return res.status(400).json({ message: "Nombre, Precio y Stock son obligatorios y no pueden ser negativos." });
   }
 
   try {
